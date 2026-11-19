@@ -87,6 +87,28 @@ def user_posts_page(
 
 
 # user related api endpoints -----------------------------
+@app.get('/api/users', tags=['User Oprations'])
+def get_users(db: Annotated[Session, Depends(get_db)]) -> List[UserResponce]:
+    users = db.execute(select(models.User)).scalars().all()
+    return users      #type: ignore
+
+
+
+@app.get("/api/users/{user_id}", tags=['User Oprations'])
+def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]) -> UserResponce:
+    user = db.execute(
+        select(models.User).where(models.User.id == user_id)
+    ).scalars().first()
+
+    if user: 
+        return user        #type: ignore
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail='User not found',
+    )
+
+
 @app.post(
         '/api/users',
         response_model=UserResponce,
@@ -124,20 +146,6 @@ def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
 
     return new_user
 
-
-@app.get("/api/users/{user_id}", response_model=UserResponce, tags=['User Oprations'])
-def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
-    user = db.execute(
-        select(models.User).where(models.User.id == user_id)
-    ).scalars().first()
-
-    if user: 
-        return user
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail='User not found',
-    )
 
 
 @app.get('/api/users/{user_id}/posts', tags=['User Oprations'])
