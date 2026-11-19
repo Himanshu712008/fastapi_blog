@@ -202,7 +202,7 @@ def update_user(
                 detail='Email already exists'
         )
     user_dict= user_data.model_dump(exclude_unset=True)
-    for key, value in user_dict:
+    for key, value in user_dict.items():
         setattr(user, key, value)
 
     db.commit()
