@@ -13,7 +13,8 @@ class User(Base):
     image_file: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None)
 
     posts: Mapped[List['Post']] = relationship(
-        back_populates='author'
+        back_populates='author',
+        cascade='all, delete-orphan',
     )
 
     @property
