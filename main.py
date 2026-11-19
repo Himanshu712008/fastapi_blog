@@ -26,7 +26,7 @@ templates = Jinja2Templates(directory='templates')
 
 
 
-# HTML responces api endpoints
+# HTML responces api endpoints---------------------------------
 @app.get('/', include_in_schema=False, name='home')
 @app.get('/posts', include_in_schema=False, name='posts')
 def home(request: Request, db: Annotated[Session, Depends(get_db)]):
@@ -90,7 +90,8 @@ def user_posts_page(
 @app.post(
         '/api/users',
         response_model=UserResponce,
-        status_code=status.HTTP_201_CREATED
+        status_code=status.HTTP_201_CREATED,
+        tags=['User Oprations']
 )
 def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
     result = db.execute(
@@ -124,7 +125,7 @@ def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
     return new_user
 
 
-@app.get("/api/users/{user_id}", response_model=UserResponce)
+@app.get("/api/users/{user_id}", response_model=UserResponce, tags=['User Oprations'])
 def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
     user = db.execute(
         select(models.User).where(models.User.id == user_id)
@@ -139,7 +140,7 @@ def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
     )
 
 
-@app.get('/api/users/{user_id}/posts')
+@app.get('/api/users/{user_id}/posts', tags=['User Oprations'])
 def get_user_posts(
     user_id: int,
     db: Annotated[Session, Depends(get_db)]
@@ -162,7 +163,7 @@ def get_user_posts(
 
 
 
-@app.patch("/api/users/{user_id}")
+@app.patch("/api/users/{user_id}", tags=['User Oprations'])
 def update_user(
     user_id: int, 
     db: Annotated[Session, Depends(get_db)],
@@ -201,12 +202,7 @@ def update_user(
     return user        # type: ignore
 
 
-
-
-
-    
-
-@app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=['User Oprations'])
 def delete_user(
     user_id: int, 
     db: Annotated[Session, Depends(get_db)]
@@ -220,20 +216,23 @@ def delete_user(
     db.delete(user)
     db.commit()
     
+
+
+
+
         
-    
 
 
 # post related api endpoints -----------------------------------
 
-@app.get("/api/posts")
+@app.get("/api/posts", tags=['Post Oprations'])
 def get_posts(db: Annotated[Session, Depends(get_db)]) -> List[PostReponce]:
     posts = db.execute(select(models.Post)).scalars().all()
     return posts    # type: ignore
 
 
 
-@app.post('/api/posts',status_code=status.HTTP_201_CREATED)
+@app.post('/api/posts',status_code=status.HTTP_201_CREATED, tags=['Post Oprations'])
 def create_post(post: PostCreate, db: Annotated[Session, Depends(get_db)]) -> PostReponce:
     user = db.execute(select(models.User).where(models.User.id == post.user_id)).scalars().all()
     if not user:
@@ -253,7 +252,7 @@ def create_post(post: PostCreate, db: Annotated[Session, Depends(get_db)]) -> Po
 
         
 
-@app.get("/api/posts/{post_id}")
+@app.get("/api/posts/{post_id}", tags=['Post Oprations'])
 def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]) -> PostReponce:
     post = db.execute(select(models.Post).where(models.Post.id == post_id)).scalars().first()
     if not post:
@@ -265,7 +264,7 @@ def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]) -> PostRepon
 
 
 
-@app.put("/api/posts/{post_id}")
+@app.put("/api/posts/{post_id}", tags=['Post Oprations'])
 def update_post_full(
     post_id: int, 
     db: Annotated[Session, Depends(get_db)],
@@ -295,7 +294,7 @@ def update_post_full(
 
 
 
-@app.patch("/api/posts/{post_id}")
+@app.patch("/api/posts/{post_id}", tags=['Post Oprations'])
 def update_post_partial(
     post_id: int, 
     db: Annotated[Session, Depends(get_db)],
@@ -317,7 +316,7 @@ def update_post_partial(
 
 
 
-@app.delete("/api/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/api/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT, tags=['Post Oprations'])
 def delete_post(
     post_id: int, 
     db: Annotated[Session, Depends(get_db)]
