@@ -25,14 +25,13 @@ class UserUpdate(BaseModel):
     image_file: str | None = Field(default=None, min_length=1, max_length=200)
 
 
-
 class PostBase(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     content: str = Field(min_length=1)
 
 
 class PostCreate(PostBase):
-    user_id: int 
+    user_id: int
 
 
 class PostUpdate(BaseModel):
