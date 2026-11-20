@@ -233,85 +233,94 @@ async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 
 @app.get("/api/posts", tags=["Post Oprations"])
 async def get_posts(db: Annotated[AsyncSession, Depends(get_db)]) -> List[PostReponce]:
-    result = await db.execute(select(models.Post))
+    result = await db.execute(
+        select(models.Post).options(selectinload(models.Post.author))
+    )
     posts = result.scalars().all()
     return posts  # type: ignore
 
 
 @app.post("/api/posts", status_code=status.HTTP_201_CREATED, tags=["Post Oprations"])
-def create_post(
-    post: PostCreate, db: Annotated[Session, Depends(get_db)]
+async def create_post(
+    post: PostCreate, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> PostReponce:
-    user = (
-        db.execute(select(models.User).where(models.User.id == post.user_id))
-        .scalars()
-        .all()
-    )
+    result = await db.execute(select(models.User).where(models.User.id == post.user_id))
+    user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
     new_post = models.Post(title=post.title, content=post.content, user_id=post.user_id)
     db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
+    await db.commit()
+    await db.refresh(new_post, attribute_names=["author"])
     return new_post  # type: ignore
 
 
 @app.get("/api/posts/{post_id}", tags=["Post Oprations"])
-def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]) -> PostReponce:
-    post = (
-        db.execute(select(models.Post).where(models.Post.id == post_id))
-        .scalars()
-        .first()
+async def get_post(
+    post_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+) -> PostReponce:
+    result = await db.execute(
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.id == post_id)
     )
+    post = result.scalars().first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post  # type: ignore
 
 
 @app.put("/api/posts/{post_id}", tags=["Post Oprations"])
-def update_post_full(
-    post_id: int, db: Annotated[Session, Depends(get_db)], post_data: PostCreate
+async def update_post_full(
+    post_id: int,
+    post_data: PostCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PostReponce:
-    post = (
-        db.execute(select(models.Post).where(models.Post.id == post_id))
-        .scalars()
-        .first()
-    )
+    result = await db.execute(select(models.Post).where(models.Post.id == post_id))
+    post = result.scalars().first()
     if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-    if post_data.user_id != post.user_id:
-        author = (
-            db.execute(select(models.User).where(models.User.id == post_data.user_id))
-            .scalars()
-            .first()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
         )
-        if not author:
-            raise HTTPException(status_code=404, detail="User not found")
+    if post_data.user_id != post.user_id:
+        result = await db.execute(
+            select(models.User).where(models.User.id == post_data.user_id),
+        )
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
     post.title = post_data.title
     post.content = post_data.content
     post.user_id = post_data.user_id
-    db.commit()
-    db.refresh(post)
+
+    await db.commit()
+    await db.refresh(post, attribute_names=["author"])
     return post  # type: ignore
 
 
 @app.patch("/api/posts/{post_id}", tags=["Post Oprations"])
-def update_post_partial(
-    post_id: int, db: Annotated[Session, Depends(get_db)], post_data: PostUpdate
+async def update_post_partial(
+    post_id: int, db: Annotated[AsyncSession, Depends(get_db)], post_data: PostUpdate
 ) -> PostReponce:
-    post = (
-        db.execute(select(models.Post).where(models.Post.id == post_id))
-        .scalars()
-        .first()
+    result = await db.execute(
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.id == post_id)
     )
+    post = result.scalars().first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     updated_post = post_data.model_dump(exclude_unset=True)
     for key, value in updated_post.items():
         setattr(post, key, value)
 
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post, attribute_names=["author"])
     return post  # type: ignore
 
 
@@ -320,19 +329,20 @@ def update_post_partial(
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["Post Oprations"],
 )
-def delete_post(post_id: int, db: Annotated[Session, Depends(get_db)]):
-    post = (
-        db.execute(select(models.Post).where(models.Post.id == post_id))
-        .scalars()
-        .first()
+async def delete_post(post_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.id == post_id)
     )
+    post = result.scalars().first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    db.delete(post)
-    db.commit()
+    await db.delete(post)
+    await db.commit()
 
 
-# excepption Handkers ----------------------------
+# exception Handkers ----------------------------
 
 
 @app.exception_handler(StarletteHTTPException)
