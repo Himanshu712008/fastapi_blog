@@ -1,13 +1,16 @@
-from sqlalchemy.orm import Session, DeclarativeBase
-from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.ext.asyncio import  AsyncSession, create_async_engine
 
-SQLALCHEMY_DATABASE_URL = 'sqlite:///./blog.db'
+SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///./blog.db'
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={"check_same_thread": False}
+)
 
 class Base(DeclarativeBase):
     pass
 
-def get_db():
-    with Session(engine, autoflush=False) as db:
-        yield db
+async def get_db():
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        yield session
