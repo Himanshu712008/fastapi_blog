@@ -86,9 +86,11 @@ async def get_user_posts(
         )
 
     result = await db.execute(
-        select(models.User.posts).where(models.User.id == user_id)
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.user_id == user_id)
     )
-    posts = result.scalars().first()
+    posts = result.scalars().all()
     return posts  # type: ignore
 
 
