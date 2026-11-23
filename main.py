@@ -40,7 +40,7 @@ app.include_router(users.router, prefix="/api/users", tags=["User Endpoints"])
 app.include_router(posts.router, prefix="/api/posts", tags=["Post Endpoints"])
 
 
-# HTML responces api endpoints---------------------------------
+# HTML responces api endpoints----------------------------------------------------------------------
 
 
 @app.get("/", include_in_schema=False, name="home")
@@ -86,11 +86,7 @@ async def user_posts_page(
     user_id: Annotated[int, Path()],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    result = await db.execute(
-        select(models.User)
-        .where(models.User.id == user_id)
-        .order_by(models.Post.date_posted.desc())
-    )
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -98,6 +94,7 @@ async def user_posts_page(
         select(models.Post)
         .options(selectinload(models.Post.author))
         .where(models.Post.user_id == user_id)
+        .order_by(models.Post.date_posted.desc())
     )
     posts = result.scalars().all()
     return templates.TemplateResponse(
@@ -107,7 +104,25 @@ async def user_posts_page(
     )
 
 
-# exception Handlers ----------------------------
+@app.get("/login", include_in_schema=False)
+async def login_page(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"title": "Login"},
+    )
+
+
+@app.get("/register", include_in_schema=False)
+async def register_page(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "register.html",
+        {"title": "Register"},
+    )
+
+
+# exception Handlers -------------------------------------------------------------------------
 
 
 @app.exception_handler(StarletteHTTPException)
