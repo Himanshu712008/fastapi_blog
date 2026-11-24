@@ -1,10 +1,8 @@
 from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
 import models
 from database import get_db
 from schemas import UserCreate, UserUpdate, PostReponce, UserPublic, UserPrivate, Token
@@ -17,6 +15,7 @@ from auth import (
     oauth2_scheme,
     hash_password,
     verify_password,
+    CurrentUser,
 )
 
 router = APIRouter()
@@ -101,44 +100,18 @@ async def create_user(user: UserCreate, db: Annotated[AsyncSession, Depends(get_
 
 
 # ------------------------------------------------------------------------------------------------------
+
+
 @router.get(
     "/me",
 )
-async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> UserPrivate:
-    user_id = verify_access_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        user_id_int = int(user_id)
-    except TypeError, ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    result = await db.execute(
-        select(models.User).where(models.User.id == user_id_int),
-    )
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user  # type: ignore
+async def get_current_user(current_user: CurrentUser) -> UserPrivate:
+    return current_user  # type: ignore
 
 
 # ------------------------------------------------------------------------------------------------------
+
+
 @router.get(
     "/{user_id}",
 )
@@ -186,12 +159,23 @@ async def get_user_posts(
     "/{user_id}",
 )
 async def update_user(
-    user_id: int, db: Annotated[AsyncSession, Depends(get_db)], user_data: UserUpdate
+    user_id: int,
+    user_data: UserUpdate,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserPrivate:
+
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user",
+        )
+
     result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
+
     if (
         user_data.username is not None
         and user.username.lower() != user_data.username.lower()
@@ -204,6 +188,7 @@ async def update_user(
         existing_username = result.scalars().first()
         if existing_username:
             raise HTTPException(status_code=404, detail="Username already exists")
+
     if user_data.email is not None and user.email.lower() != user_data.email.lower():
         result = await db.execute(
             select(models.User).where(
@@ -231,10 +216,22 @@ async def update_user(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_user(
+    user_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this user",
+        )
+
     result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     await db.delete(user)
     await db.commit()
