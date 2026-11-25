@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     # image size configuration
-    max_upload_size_bytes = 5 * 1024 * 1024  # in MB
+    max_upload_size_bytes: int = 5 * 1024 * 1024  # in MB
 
 
 settings = Settings()  # type: ignore
