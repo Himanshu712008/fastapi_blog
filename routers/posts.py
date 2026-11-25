@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import models
 from database import get_db
-from schemas import PostCreate, PostReponce, PostUpdate
+from schemas import PostCreate, PostReponce, PostUpdate, PaginatedPostResponce
 from auth import CurrentUser
 
 router = APIRouter()
@@ -16,14 +16,33 @@ router = APIRouter()
 @router.get(
     "",
 )
-async def get_posts(db: Annotated[AsyncSession, Depends(get_db)]) -> list[PostReponce]:
+async def get_posts(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> PaginatedPostResponce:
+
+    count_result = await db.execute(select(func.count(models.Post.id)))
+    total = count_result.scalar() or 0
+
     result = await db.execute(
         select(models.Post)
         .options(selectinload(models.Post.author))
         .order_by(models.Post.date_posted.desc())
+        .offset(skip)
+        .limit(limit)
     )
     posts = result.scalars().all()
-    return posts  # type: ignore
+
+    is_more = skip + limit < total
+
+    return PaginatedPostResponce(
+        posts=[PostReponce.model_validate(post) for post in posts],
+        total=total,
+        skip=skip,
+        limit=limit,
+        is_more=is_more,
+    )
 
 
 @router.post(
