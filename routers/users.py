@@ -1,18 +1,26 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import models
 from database import get_db
-from schemas import UserCreate, UserUpdate, PostReponce, UserPublic, UserPrivate, Token
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette.concurrency import run_in_threadpool
 from config import settings
 from PIL import UnidentifiedImageError
 from image_utils import process_profile_image, delete_profile_image
+from schemas import (
+    UserCreate,
+    UserUpdate,
+    PostReponce,
+    UserPublic,
+    UserPrivate,
+    Token,
+    PaginatedPostResponce,
+)
 from auth import (
     create_access_token,
     hash_password,
@@ -136,8 +144,19 @@ async def get_user(
     "/{user_id}/posts",
 )
 async def get_user_posts(
-    user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
-) -> list[PostReponce]:
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: int,
+    current_user: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    skip: Annotated[int, Query(ge=0)] = 0,
+) -> PaginatedPostResponce:
+
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(models.Post)
+        .where(models.Post.user_id == user_id),
+    )
+    total = count_result.scalar() or 0
 
     result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
@@ -151,9 +170,20 @@ async def get_user_posts(
         .options(selectinload(models.Post.author))
         .where(models.Post.user_id == user_id)
         .order_by(models.Post.date_posted.desc())
+        .offset(skip)
+        .limit(limit)
     )
     posts = result.scalars().all()
-    return posts  # type: ignore
+
+    has_more = len(posts) + skip < total
+
+    return PaginatedPostResponce(
+        posts=[PostReponce.model_validate(post) for post in posts],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 # ------------------------------------------------------------------------------------------------------
