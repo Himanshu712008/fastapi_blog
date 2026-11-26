@@ -16,5 +16,8 @@ class Settings(BaseSettings):
     # image size configuration
     max_upload_size_bytes: int = 5 * 1024 * 1024  # in MB
 
+    # post per page to load
+    posts_per_page: int = 10
+
 
 settings = Settings()  # type: ignore
