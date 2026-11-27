@@ -19,5 +19,18 @@ class Settings(BaseSettings):
     # post per page to load
     posts_per_page: int = 10
 
+    # server reset time for token
+    reset_token_expire_minutes: int = 60
+
+    # email configs
+    mail_server: str = "localhost"
+    mail_port: int = 587
+    mail_username = ""
+    mail_password: SecretStr = SecretStr("")
+    mail_from: str = "noreply@exampl.com"
+    mail_use_tls: bool = True
+
+    frontend_url: str = "http://localhost:8000"
+
 
 settings = Settings()  # type: ignore
